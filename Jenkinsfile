@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent { label 'linux' }
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
@@ -20,19 +20,25 @@ pipeline {
 
     stage('Tools Versions') {
       steps {
-        sh 'aws --version || true'
-        sh 'terraform version || true'
-        sh 'kubectl version --client || true'
-        sh 'docker --version || true'
+        sh '''
+          set +e
+          aws --version || true
+          terraform version || true
+          kubectl version --client || true
+          docker --version || true
+        '''
       }
     }
 
     stage('Terraform Init/Plan/Apply') {
       steps {
         dir('infra') {
-          sh 'terraform init -input=false'
-          sh 'terraform plan -input=false -out=tfplan'
-          sh 'terraform apply -input=false -auto-approve tfplan'
+          sh '''
+            set -e
+            terraform init -input=false
+            terraform plan -input=false -out=tfplan
+            terraform apply -input=false -auto-approve tfplan
+          '''
         }
       }
     }
@@ -42,19 +48,18 @@ pipeline {
         IMAGE_TAG = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
       }
       steps {
-        script {
-          sh '''
-            set -e
-            ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            REPO_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+        sh '''
+          set -e
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          REPO_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
 
-            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          aws ecr get-login-password --region ${AWS_REGION} | \
+            docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-            docker build -t ${ECR_REPO}:${IMAGE_TAG} .
-            docker tag ${ECR_REPO}:${IMAGE_TAG} ${REPO_URL}:${IMAGE_TAG}
-            docker push ${REPO_URL}:${IMAGE_TAG}
-          '''
-        }
+          docker build -t ${ECR_REPO}:${IMAGE_TAG} .
+          docker tag ${ECR_REPO}:${IMAGE_TAG} ${REPO_URL}:${IMAGE_TAG}
+          docker push ${REPO_URL}:${IMAGE_TAG}
+        '''
       }
     }
 
