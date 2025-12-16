@@ -102,8 +102,10 @@ pipeline {
             }
             if (-not $loginOk) { throw "ECR login failed after retries" }
 
-            $localTag = "$($env:ECR_REPO):$($env:IMAGE_TAG)"
-            $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
+            # Compute image tag consistently (7-char commit or build number)
+            if ($env:GIT_COMMIT -and $env:GIT_COMMIT.Length -ge 7) { $TAG = $env:GIT_COMMIT.Substring(0,7) } else { $TAG = $env:BUILD_NUMBER }
+            $localTag = "$($env:ECR_REPO):$TAG"
+            $remoteTag = "$($REPO_URL):$TAG"
 
             docker build -t "$localTag" .
             docker tag "$localTag" "$remoteTag"
@@ -145,7 +147,8 @@ pipeline {
             $ErrorActionPreference = "Stop"
             $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
             $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
-            $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
+            if ($env:GIT_COMMIT -and $env:GIT_COMMIT.Length -ge 7) { $TAG = $env:GIT_COMMIT.Substring(0,7) } else { $TAG = $env:BUILD_NUMBER }
+            $remoteTag = "$($REPO_URL):$TAG"
             kubectl set image deployment/nginx-deployment nginx=$remoteTag
             # Wait up to 5 minutes for rollout
             if (-not (kubectl rollout status deployment/nginx-deployment --timeout=5m)) {
