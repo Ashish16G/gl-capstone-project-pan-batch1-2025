@@ -1,0 +1,64 @@
+pipeline {
+  agent any
+
+  parameters {
+    booleanParam(name: 'CONFIRM_DESTROY', defaultValue: false, description: 'Tick to confirm you want to destroy ALL infra in infra/ (VPC, EKS, ECR, etc.)')
+    string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Confirm Destroy') {
+      steps {
+        script {
+          if (!params.CONFIRM_DESTROY) {
+            error 'CONFIRM_DESTROY is not checked. Aborting to prevent accidental deletion.'
+          }
+        }
+      }
+    }
+
+    stage('AWS Identity Check') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            aws sts get-caller-identity
+          '''
+        }
+      }
+    }
+
+    stage('Terraform Destroy') {
+      steps {
+        dir('infra') {
+          withCredentials([
+            string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
+            powershell '''
+              $ErrorActionPreference = "Stop"
+              terraform init -input=false
+              terraform destroy -input=false -auto-approve
+            '''
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always { echo 'Destroy pipeline finished.' }
+  }
+}
