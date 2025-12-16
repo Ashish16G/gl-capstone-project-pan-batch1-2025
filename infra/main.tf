@@ -13,7 +13,8 @@ module "eks" {
   project_name         = var.project_name
   cluster_name         = var.cluster_name
   eks_version          = var.eks_version
-  private_subnet_ids   = module.vpc.private_subnet_ids
+  private_subnet_ids   = module.vpc.public_subnet_ids
+  vpc_id               = module.vpc.vpc_id
   node_instance_type   = var.node_instance_type
   node_disk_size       = var.node_disk_size
   node_desired         = var.node_desired

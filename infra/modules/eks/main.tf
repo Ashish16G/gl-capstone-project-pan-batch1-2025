@@ -49,13 +49,81 @@ resource "aws_iam_role_policy_attachment" "node_AmazonEKS_CNI_Policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
 
+# Security Groups based on tested setup
+resource "aws_security_group" "control_plane" {
+  name        = "${var.project_name}-control-plane-sg"
+  description = "Control plane ENIs"
+  vpc_id      = var.vpc_id
+}
+
+resource "aws_security_group_rule" "cp_ingress_https_self" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.control_plane.id
+  security_group_id        = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "cp_egress_kubelet_self" {
+  type                     = "egress"
+  from_port                = 10250
+  to_port                  = 10250
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.control_plane.id
+  security_group_id        = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group_rule" "cp_egress_https_self" {
+  type                     = "egress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.control_plane.id
+  security_group_id        = aws_security_group.control_plane.id
+}
+
+resource "aws_security_group" "worker" {
+  name        = "${var.project_name}-worker-sg"
+  description = "Security group for all worker nodes"
+  vpc_id      = var.vpc_id
+}
+
+resource "aws_security_group_rule" "worker_ingress_all_self" {
+  type                     = "ingress"
+  protocol                 = "-1"
+  from_port                = 0
+  to_port                  = 0
+  source_security_group_id = aws_security_group.worker.id
+  security_group_id        = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_ingress_kubelet_from_cp" {
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 10250
+  to_port                  = 10250
+  source_security_group_id = aws_security_group.control_plane.id
+  security_group_id        = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "worker_ingress_https_from_cp" {
+  type                     = "ingress"
+  protocol                 = "tcp"
+  from_port                = 443
+  to_port                  = 443
+  source_security_group_id = aws_security_group.control_plane.id
+  security_group_id        = aws_security_group.worker.id
+}
+
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   version  = var.eks_version
   role_arn = aws_iam_role.cluster_role.arn
 
   vpc_config {
-    subnet_ids = var.private_subnet_ids
+    subnet_ids          = var.private_subnet_ids
+    security_group_ids  = [aws_security_group.control_plane.id]
   }
 }
 
