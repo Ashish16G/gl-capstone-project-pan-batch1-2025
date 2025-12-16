@@ -5,6 +5,7 @@ pipeline {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
     string(name: 'ECR_REPO', defaultValue: 'gl-capactone-project-pan-repo', description: 'ECR repository name')
     string(name: 'CLUSTER_NAME', defaultValue: 'capstone-eks', description: 'EKS cluster name')
+    booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'If true, runs terraform destroy instead of plan/apply')
   }
 
   options {
@@ -55,8 +56,13 @@ pipeline {
             powershell '''
               $ErrorActionPreference = "Stop"
               terraform init -input=false
-              terraform plan -input=false -out=tfplan
-              terraform apply -input=false -auto-approve tfplan
+              if ($env:DESTROY_INFRA -eq 'true') {
+                Write-Host 'DESTROY_INFRA=true -> running terraform destroy'
+                terraform destroy -input=false -auto-approve
+              } else {
+                terraform plan -input=false -out=tfplan
+                terraform apply -input=false -auto-approve tfplan
+              }
             '''
           }
         }
@@ -64,6 +70,7 @@ pipeline {
     }
 
     stage('Docker Build and Push to ECR') {
+      when { expression { return !params.DESTROY_INFRA } }
       environment {
         IMAGE_TAG = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
       }
@@ -116,7 +123,7 @@ pipeline {
     }
 
     stage('Deploy to EKS') {
-      when { expression { return fileExists('manifests') } }
+      when { expression { return !params.DESTROY_INFRA && fileExists('manifests') } }
       steps {
         withCredentials([
           string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
@@ -134,6 +141,7 @@ pipeline {
     stage('Rollout ECR Image') {
       when {
         allOf {
+          expression { return !params.DESTROY_INFRA }
           expression { return params.ECR_REPO?.trim() }
           expression { return fileExists('manifests') }
         }
