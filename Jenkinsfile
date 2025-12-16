@@ -82,7 +82,25 @@ pipeline {
             Write-Host "Repo URL:     $REPO_URL"
             # Clear any stale auth (ignore errors)
             try { docker logout $ECR_REG | Out-Null } catch { }
-            aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
+            # Quick connectivity check
+            try { Invoke-WebRequest -UseBasicParsing -Uri "https://$ECR_REG/v2/" -Method GET -TimeoutSec 10 | Out-Null } catch { Write-Host "Connectivity check (expected 401/200) -> $($_.Exception.Message)" }
+
+            $loginOk = $false
+            for ($i=0; $i -lt 2 -and -not $loginOk; $i++) {
+              try {
+                $pwd = $(aws ecr get-login-password --region $env:AWS_REGION)
+                if (-not $pwd) { throw "Empty ECR password" }
+                if ($i -eq 0) {
+                  docker login --username AWS --password $pwd $ECR_REG
+                } else {
+                  docker login --username AWS --password $pwd "https://$ECR_REG"
+                }
+                if ($LASTEXITCODE -eq 0) { $loginOk = $true }
+              } catch {
+                Start-Sleep -Seconds 3
+              }
+            }
+            if (-not $loginOk) { throw "ECR login failed after retries" }
 
             $localTag = "$($env:ECR_REPO):$($env:IMAGE_TAG)"
             $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
