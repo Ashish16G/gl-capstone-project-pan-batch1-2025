@@ -30,15 +30,35 @@ pipeline {
       }
     }
 
+    stage('AWS Identity Check') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            Write-Host "Checking AWS identity..."
+            aws sts get-caller-identity
+          '''
+        }
+      }
+    }
+
     stage('Terraform Init/Plan/Apply') {
       steps {
         dir('infra') {
-          powershell '''
-            $ErrorActionPreference = "Stop"
-            terraform init -input=false
-            terraform plan -input=false -out=tfplan
-            terraform apply -input=false -auto-approve tfplan
-          '''
+          withCredentials([
+            string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+            string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+          ]) {
+            powershell '''
+              $ErrorActionPreference = "Stop"
+              terraform init -input=false
+              terraform plan -input=false -out=tfplan
+              terraform apply -input=false -auto-approve tfplan
+            '''
+          }
         }
       }
     }
@@ -48,29 +68,39 @@ pipeline {
         IMAGE_TAG = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
       }
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
-          $ECR_REG = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com"
-          $REPO_URL = "$ECR_REG/$env:ECR_REPO"
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
+            $ECR_REG = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com"
+            $REPO_URL = "$ECR_REG/$env:ECR_REPO"
 
-          aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
+            aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
 
-          docker build -t "$env:ECR_REPO:$env:IMAGE_TAG" .
-          docker tag "$env:ECR_REPO:$env:IMAGE_TAG" "$REPO_URL:$env:IMAGE_TAG"
-          docker push "$REPO_URL:$env:IMAGE_TAG"
-        '''
+            docker build -t "$env:ECR_REPO:$env:IMAGE_TAG" .
+            docker tag "$env:ECR_REPO:$env:IMAGE_TAG" "$REPO_URL:$env:IMAGE_TAG"
+            docker push "$REPO_URL:$env:IMAGE_TAG"
+          '''
+        }
       }
     }
 
     stage('Deploy to EKS') {
       when { expression { return fileExists('manifests') } }
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
-          kubectl apply -f manifests/
-        '''
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
+            kubectl apply -f manifests/
+          '''
+        }
       }
     }
 
@@ -82,13 +112,18 @@ pipeline {
         }
       }
       steps {
-        powershell '''
-          $ErrorActionPreference = "Stop"
-          $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
-          $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
-          kubectl set image deployment/nginx-deployment nginx=$REPO_URL:$env:IMAGE_TAG --record
-          kubectl rollout status deployment/nginx-deployment --timeout=2m
-        '''
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
+            $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
+            kubectl set image deployment/nginx-deployment nginx=$REPO_URL:$env:IMAGE_TAG --record
+            kubectl rollout status deployment/nginx-deployment --timeout=2m
+          '''
+        }
       }
     }
   }
