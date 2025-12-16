@@ -153,7 +153,7 @@ resource "aws_eks_node_group" "this" {
 }
 
 data "tls_certificate" "oidc_thumbprint" {
-  url = replace(aws_eks_cluster.this.identity[0].oidc[0].issuer, "https://", "")
+  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
 }
 
 resource "aws_iam_openid_connect_provider" "this" {
