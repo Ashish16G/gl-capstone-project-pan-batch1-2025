@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'linux' }
+  agent any
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
@@ -20,12 +20,12 @@ pipeline {
 
     stage('Tools Versions') {
       steps {
-        sh '''
-          set +e
-          aws --version || true
-          terraform version || true
-          kubectl version --client || true
-          docker --version || true
+        powershell '''
+          $ErrorActionPreference = "Continue"
+          aws --version
+          terraform version
+          kubectl version --client
+          docker --version
         '''
       }
     }
@@ -33,8 +33,8 @@ pipeline {
     stage('Terraform Init/Plan/Apply') {
       steps {
         dir('infra') {
-          sh '''
-            set -e
+          powershell '''
+            $ErrorActionPreference = "Stop"
             terraform init -input=false
             terraform plan -input=false -out=tfplan
             terraform apply -input=false -auto-approve tfplan
@@ -48,17 +48,17 @@ pipeline {
         IMAGE_TAG = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
       }
       steps {
-        sh '''
-          set -e
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPO_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+        powershell '''
+          $ErrorActionPreference = "Stop"
+          $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
+          $ECR_REG = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com"
+          $REPO_URL = "$ECR_REG/$env:ECR_REPO"
 
-          aws ecr get-login-password --region ${AWS_REGION} | \
-            docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+          aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
 
-          docker build -t ${ECR_REPO}:${IMAGE_TAG} .
-          docker tag ${ECR_REPO}:${IMAGE_TAG} ${REPO_URL}:${IMAGE_TAG}
-          docker push ${REPO_URL}:${IMAGE_TAG}
+          docker build -t "$env:ECR_REPO:$env:IMAGE_TAG" .
+          docker tag "$env:ECR_REPO:$env:IMAGE_TAG" "$REPO_URL:$env:IMAGE_TAG"
+          docker push "$REPO_URL:$env:IMAGE_TAG"
         '''
       }
     }
@@ -66,9 +66,9 @@ pipeline {
     stage('Deploy to EKS') {
       when { expression { return fileExists('manifests') } }
       steps {
-        sh '''
-          set -e
-          aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${AWS_REGION}
+        powershell '''
+          $ErrorActionPreference = "Stop"
+          aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
           kubectl apply -f manifests/
         '''
       }
@@ -82,11 +82,11 @@ pipeline {
         }
       }
       steps {
-        sh '''
-          set -e
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          REPO_URL="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
-          kubectl set image deployment/nginx-deployment nginx=${REPO_URL}:${IMAGE_TAG} --record
+        powershell '''
+          $ErrorActionPreference = "Stop"
+          $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
+          $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
+          kubectl set image deployment/nginx-deployment nginx=$REPO_URL:$env:IMAGE_TAG --record
           kubectl rollout status deployment/nginx-deployment --timeout=2m
         '''
       }
