@@ -1,7 +1,10 @@
 data "aws_iam_policy_document" "cluster_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { type = "Service" identifiers = ["eks.amazonaws.com"] }
+    principals {
+      type        = "Service"
+      identifiers = ["eks.amazonaws.com"]
+    }
   }
 }
 
@@ -25,7 +28,10 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKS_VPC_ResourceControl
 data "aws_iam_policy_document" "node_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { type = "Service" identifiers = ["ec2.amazonaws.com"] }
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
   }
 }
 

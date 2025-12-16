@@ -45,7 +45,10 @@ resource "aws_nat_gateway" "nat" {
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
-  route { cidr_block = "0.0.0.0/0" gateway_id = aws_internet_gateway.igw.id }
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
   tags = { Name = "${var.project_name}-public-rt" }
 }
 
@@ -57,7 +60,10 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.this.id
-  route { cidr_block = "0.0.0.0/0" nat_gateway_id = aws_nat_gateway.nat.id }
+  route {
+    cidr_block    = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.nat.id
+  }
   tags = { Name = "${var.project_name}-private-rt" }
 }
 
@@ -71,16 +77,36 @@ resource "aws_security_group" "http" {
   name        = "${var.project_name}-http-sg"
   description = "Allow HTTP"
   vpc_id      = aws_vpc.this.id
-  ingress { from_port = 80 to_port = 80 protocol = "tcp" cidr_blocks = ["0.0.0.0/0"] }
-  egress  { from_port = 0  to_port = 0  protocol = "-1"   cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_security_group" "ssh" {
   name        = "${var.project_name}-ssh-sg"
   description = "Allow SSH"
   vpc_id      = aws_vpc.this.id
-  ingress { from_port = 22 to_port = 22 protocol = "tcp" cidr_blocks = [var.ssh_cidr] }
-  egress  { from_port = 0  to_port = 0  protocol = "-1"   cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.ssh_cidr]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 output "vpc_id" { value = aws_vpc.this.id }
