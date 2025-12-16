@@ -146,8 +146,18 @@ pipeline {
             $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
             $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
             $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
-            kubectl set image deployment/nginx-deployment nginx=$remoteTag --record
-            kubectl rollout status deployment/nginx-deployment --timeout=2m
+            kubectl set image deployment/nginx-deployment nginx=$remoteTag
+            # Wait up to 5 minutes for rollout
+            if (-not (kubectl rollout status deployment/nginx-deployment --timeout=5m)) {
+              Write-Host "Rollout status timed out - collecting diagnostics"
+              kubectl get deployment nginx-deployment -o wide
+              kubectl describe deployment nginx-deployment
+              kubectl get rs -o wide
+              kubectl get pods -o wide
+              kubectl describe pods
+              kubectl get events --sort-by=.lastTimestamp | Select-Object -Last 100
+              throw "Deployment rollout timed out"
+            }
           '''
         }
       }
