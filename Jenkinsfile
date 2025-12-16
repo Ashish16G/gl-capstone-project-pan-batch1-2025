@@ -78,6 +78,10 @@ pipeline {
             $ECR_REG = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com"
             $REPO_URL = "$ECR_REG/$env:ECR_REPO"
 
+            Write-Host "ECR Registry: $ECR_REG"
+            Write-Host "Repo URL:     $REPO_URL"
+            # Clear any stale auth (ignore errors)
+            try { docker logout $ECR_REG | Out-Null } catch { }
             aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
 
             $localTag = "$($env:ECR_REPO):$($env:IMAGE_TAG)"
