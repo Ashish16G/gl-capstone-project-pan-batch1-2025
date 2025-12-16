@@ -80,9 +80,12 @@ pipeline {
 
             aws ecr get-login-password --region $env:AWS_REGION | docker login --username AWS --password-stdin $ECR_REG
 
-            docker build -t "$("$env:ECR_REPO"):$($env:IMAGE_TAG)" .
-            docker tag "$("$env:ECR_REPO"):$($env:IMAGE_TAG)" "$REPO_URL:$($env:IMAGE_TAG)"
-            docker push "$REPO_URL:$($env:IMAGE_TAG)"
+            $localTag = "$($env:ECR_REPO):$($env:IMAGE_TAG)"
+            $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
+
+            docker build -t "$localTag" .
+            docker tag "$localTag" "$remoteTag"
+            docker push "$remoteTag"
           '''
         }
       }
@@ -120,7 +123,8 @@ pipeline {
             $ErrorActionPreference = "Stop"
             $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
             $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
-            kubectl set image deployment/nginx-deployment nginx=$REPO_URL:$($env:IMAGE_TAG) --record
+            $remoteTag = "$($REPO_URL):$($env:IMAGE_TAG)"
+            kubectl set image deployment/nginx-deployment nginx=$remoteTag --record
             kubectl rollout status deployment/nginx-deployment --timeout=2m
           '''
         }
