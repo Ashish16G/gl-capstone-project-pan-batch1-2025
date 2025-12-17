@@ -23,7 +23,12 @@ pipeline {
         powershell '''
           $ErrorActionPreference = "Continue"
           Write-Host "Running Trivy filesystem scan (HIGH,CRITICAL) on repo..."
-          docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 0 .
+          # Prepare local cache dir for Trivy DB to speed up (Windows path fix to forward slashes for Docker)
+          $cachePath = Join-Path $env:WORKSPACE ".trivy-cache"
+          if (-not (Test-Path $cachePath)) { New-Item -ItemType Directory -Path $cachePath | Out-Null }
+          $cacheMount = ("$cachePath").Replace('\\','/')
+          $wsMount = ("$env:WORKSPACE").Replace('\\','/')
+          docker run --rm -v "$wsMount:/repo" -v "$cacheMount:/root/.cache/trivy" -w /repo aquasec/trivy:0.50.0 fs --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 .
           if ($LASTEXITCODE -ne 0) { Write-Host "Trivy filesystem scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
 
           if (Test-Path "manifests") {
@@ -137,7 +142,11 @@ pipeline {
             Write-Host "Scanning pushed image in ECR with Trivy (HIGH,CRITICAL) [informational only]..."
             $ecrPwd = $(aws ecr get-login-password --region $env:AWS_REGION)
             if (-not $ecrPwd) { throw "Failed to obtain ECR password for Trivy auth" }
-            docker run --rm aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 0 --username AWS --password "$ecrPwd" "$remoteTag"
+            # Reuse same cache dir for image scan
+            $cachePath = Join-Path $env:WORKSPACE ".trivy-cache"
+            if (-not (Test-Path $cachePath)) { New-Item -ItemType Directory -Path $cachePath | Out-Null }
+            $cacheMount = ("$cachePath").Replace('\\','/')
+            docker run --rm -v "$cacheMount:/root/.cache/trivy" aquasec/trivy:0.50.0 image --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 --username AWS --password "$ecrPwd" "$remoteTag"
             if ($LASTEXITCODE -ne 0) { Write-Host "Trivy remote image scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
           '''
         }
@@ -209,8 +218,29 @@ pipeline {
             $svcHost = (kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
             if (-not $svcHost) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
             $url = "http://$svcHost"
-            Write-Host "Running ZAP Baseline scan against $url"
-            docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html
+
+            # Pre-pull ZAP image with retries (prefer GHCR, fallback to Docker Hub)
+            $zapImageGhcr = "ghcr.io/zaproxy/zaproxy:stable"
+            $zapImageHub  = "owasp/zap2docker-stable"
+            $pulled = $false
+            foreach ($img in @($zapImageGhcr, $zapImageHub)) {
+              for ($i=0; $i -lt 2 -and -not $pulled; $i++) {
+                try {
+                  Write-Host "Pulling ZAP image: $img (attempt $($i+1))"
+                  docker pull $img
+                  if ($LASTEXITCODE -eq 0) { $pulled = $true; $zapImage = $img }
+                } catch { Start-Sleep -Seconds 3 }
+              }
+              if ($pulled) { break }
+            }
+
+            if (-not $pulled) {
+              Write-Host "Could not pull any ZAP image; skipping ZAP baseline (non-blocking)."
+              exit 0
+            }
+
+            Write-Host "Running ZAP Baseline scan against $url using $zapImage"
+            docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t $zapImage zap-baseline.py -t $url -r zap.html
             if ($LASTEXITCODE -ne 0) { Write-Host "ZAP baseline returned non-zero ($LASTEXITCODE). Proceeding (non-blocking)."; $global:LASTEXITCODE = 0 }
           '''
         }
