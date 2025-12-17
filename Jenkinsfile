@@ -16,6 +16,22 @@ pipeline {
       steps {
         checkout scm
       }
+
+    stage('SAST & Manifest Lint') {
+      steps {
+        powershell '''
+          $ErrorActionPreference = "Continue"
+          Write-Host "Running Trivy filesystem scan (HIGH,CRITICAL) on repo..."
+          docker run --rm -v "$env:WORKSPACE:/repo" aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 0 /repo
+          if ($LASTEXITCODE -ne 0) { Write-Host "Trivy encountered issues (non-blocking)" }
+
+          if (Test-Path "manifests") {
+            Write-Host "Linting Kubernetes manifests with kubeval..."
+            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" ghcr.io/instrumenta/kubeval:latest /manifests
+          }
+        '''
+      }
+    }
     }
 
     stage('Tools Versions') {
@@ -125,6 +141,8 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Stop"
             aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
+            # Create/update a simple application secret (placeholder for Vault/ASM)
+            kubectl create secret generic app-secrets --from-literal=APP_BANNER="GlobalLogic" --dry-run=client -o yaml | kubectl apply -f -
             kubectl apply -f manifests/
           '''
         }
@@ -162,6 +180,25 @@ pipeline {
               throw "Deployment rollout timed out"
             }
           '''
+        }
+      }
+    }
+
+    stage('DAST - ZAP Baseline') {
+      steps {
+        powershell '''
+          $ErrorActionPreference = "Continue"
+          aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
+          $host = (kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          if (-not $host) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
+          $url = "http://$host"
+          Write-Host "Running ZAP Baseline scan against $url"
+          docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html || $true
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'zap.html', allowEmptyArchive: true
         }
       }
     }

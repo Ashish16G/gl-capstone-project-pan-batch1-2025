@@ -19,3 +19,9 @@ spec:
           image: nginx:stable
           ports:
             - containerPort: 80
+          env:
+            - name: APP_BANNER
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: APP_BANNER
