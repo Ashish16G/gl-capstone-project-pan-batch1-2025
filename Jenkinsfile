@@ -28,7 +28,7 @@ pipeline {
 
           if (Test-Path "manifests") {
             Write-Host "Linting Kubernetes manifests with kubeval (Docker Hub mirror)..."
-            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" cytopia/kubeval:latest /manifests
+            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" cytopia/kubeval:latest -d /manifests
             Write-Host "Running kube-linter for richer checks..."
             docker run --rm -v "$env:WORKSPACE/manifests:/manifests" stackrox/kube-linter:v0.6.8 lint /manifests
           }
@@ -135,6 +135,7 @@ pipeline {
             if (-not (Test-Path "$tarPath")) { throw "Image TAR not found at $tarPath" }
             Write-Host "Scanning built image with Trivy (HIGH,CRITICAL)..."
             docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --input /repo/image.tar
+            if ($LASTEXITCODE -ne 0) { throw "Trivy image scan failed with exit code $LASTEXITCODE" }
 
             Write-Host "Image vulnerability scan passed. Pushing to ECR..."
             docker push "$remoteTag"
@@ -205,7 +206,8 @@ pipeline {
           if (-not $host) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
           $url = "http://$host"
           Write-Host "Running ZAP Baseline scan against $url"
-          docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html || $true
+          docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html
+          if ($LASTEXITCODE -ne 0) { Write-Host "ZAP baseline returned non-zero ($LASTEXITCODE). Proceeding (non-blocking)."; $global:LASTEXITCODE = 0 }
         '''
       }
       post {
