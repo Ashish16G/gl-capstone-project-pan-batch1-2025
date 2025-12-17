@@ -28,7 +28,7 @@ pipeline {
           if (-not (Test-Path $cachePath)) { New-Item -ItemType Directory -Path $cachePath | Out-Null }
           $cacheMount = ("$cachePath").Replace('\\','/')
           $wsMount = ("$env:WORKSPACE").Replace('\\','/')
-          docker run --rm -v "$wsMount:/repo" -v "$cacheMount:/root/.cache/trivy" -w /repo aquasec/trivy:0.50.0 fs --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 .
+          docker run --rm -v "$($wsMount):/repo" -v "$($cacheMount):/root/.cache/trivy" -w /repo aquasec/trivy:0.50.0 fs --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 .
           if ($LASTEXITCODE -ne 0) { Write-Host "Trivy filesystem scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
 
           if (Test-Path "manifests") {
@@ -146,7 +146,7 @@ pipeline {
             $cachePath = Join-Path $env:WORKSPACE ".trivy-cache"
             if (-not (Test-Path $cachePath)) { New-Item -ItemType Directory -Path $cachePath | Out-Null }
             $cacheMount = ("$cachePath").Replace('\\','/')
-            docker run --rm -v "$cacheMount:/root/.cache/trivy" aquasec/trivy:0.50.0 image --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 --username AWS --password "$ecrPwd" "$remoteTag"
+            docker run --rm -v "$($cacheMount):/root/.cache/trivy" aquasec/trivy:0.50.0 image --no-progress --scanners vuln --severity HIGH,CRITICAL --timeout 15m --exit-code 0 --username AWS --password "$ecrPwd" "$remoteTag"
             if ($LASTEXITCODE -ne 0) { Write-Host "Trivy remote image scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
           '''
         }
