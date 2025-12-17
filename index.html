@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Capstone App</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: linear-gradient(135deg, #ff8c00 0%, #0f1113 50%, #138808 100%); color: #e2e8f0; }
+    .card { text-align: center; padding: 2rem 3rem; border-radius: 14px; background: #111516; box-shadow: 0 18px 40px rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.06); }
+    h1 { margin: 0 0 0.5rem; font-size: 2rem; padding-bottom: 0.4rem; border-bottom: 2px solid rgba(255,255,255,0.6); }
+    p { margin: 0.25rem 0 0; color: #94a3b8; }
+    .badge { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #1b221b; color: #ffcc80; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.08); }
+    .chip { display: none; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: #ffffff; color: #0e2b18; font-weight: 700; font-size: 0.7rem; }
+    .calc { margin-top: 1.25rem; background: #0f1414; padding: 1rem; border-radius: 14px; display: inline-grid; grid-template-columns: 1fr 18rem; column-gap: 1rem; align-items: start; text-align: left; box-shadow: 0 10px 28px rgba(0,0,0,0.45); width: 100%; max-width: 720px; border: 1px solid rgba(255,255,255,0.06); }
+    .display { width: 100%; box-sizing: border-box; padding: 1rem 1.2rem; margin-bottom: 0.9rem; border-radius: 10px; background: #0f1414; color: #e2e8f0; border: 1px solid #233b2a; font-size: 1.4rem; outline: none; }
+    .row { display: grid; grid-template-columns: repeat(4, 3.6rem); gap: 0.6rem; }
+    .btn { background: #262a28; color: #e5e7eb; border: none; padding: 0.9rem; border-radius: 12px; cursor: pointer; font-weight: 600; transition: transform .06s ease, filter .15s ease; font-size: 1rem; }
+    .btn:active { transform: translateY(1px); filter: brightness(1.1); }
+    .btn:hover { box-shadow: 0 0 0 2px rgba(255,140,0,0.25), 0 0 18px rgba(255,140,0,0.2); }
+    .btn:active { box-shadow: 0 0 0 2px rgba(19,136,8,0.35), 0 0 14px rgba(19,136,8,0.25); }
+    .btn.op { background: #ff8c00; color: #2b1a06; }
+    .btn.equal { background: #138808; color: #031b0a; grid-column: 1 / -1; }
+    .btn.clear { background: #d84343; color: #fff; }
+    .footer { margin-top: 0.9rem; font-size: 0.85rem; color: #9fb1a6; text-align: center; }
+    .about { margin-top: 1.5rem; text-align: left; max-width: 720px; margin-inline: auto; }
+    
+    .wrap { display: grid; grid-template-columns: auto; gap: 1rem; align-items: start; }
+    .history { background: #0f1414; border: 1px solid #233b2a; border-radius: 12px; padding: 0.75rem; min-height: 8rem; max-height: 16rem; overflow: auto; }
+    .history h3 { margin: 0; font-size: .9rem; color: #ffb74d; }
+    .history .actions { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin: 0 0 .5rem; }
+    .clear-hist { background: transparent; border: 1px solid #233b2a; color: #ffb74d; padding: .25rem .5rem; border-radius: 8px; font-size: .8rem; cursor: pointer; }
+    .clear-hist:hover { background: rgba(255,183,77,0.08); }
+    .hist-empty { color: #94a3b8; font-size: .85rem; padding: .25rem 0; }
+    .hist-item { font-size: .9rem; color: #cbd5e1; padding: .3rem .4rem; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; gap: .5rem; }
+    .hist-item:hover { background: #0a162a; }
+    .diagram { margin-top: 1rem; background: #0a1020; border: 1px solid #23304d; border-radius: 12px; padding: 1rem; }
+    .diagram svg { width: 100%; height: auto; max-width: 720px; display: block; margin: 0 auto; }
+    .calc .history { grid-column: 2; grid-row: 1 / -1; align-self: start; }
+    .calc .display, .calc .row, .calc .footer { grid-column: 1; }
+    @media (max-width: 640px) { .calc { grid-template-columns: 1fr; max-width: 420px; } .calc .history { grid-column: 1; grid-row: auto; } }
+    @media (pointer: coarse) {
+      .row { grid-template-columns: repeat(4, 4rem); gap: 0.8rem; }
+      .btn { padding: 1.1rem; font-size: 1.1rem; }
+      .display { font-size: 1.6rem; padding: 1.2rem 1.3rem; }
+      .btn.equal { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>GL-Capstone-Project-PAN-2025</h1>
+    <div class="badge"><span class="chip"></span>GL</span><span>GlobalLogic Calculator</span></div>
+
+    <div class="wrap">
+    <div class="calc" aria-label="Simple Calculator">
+      <input id="disp" class="display" type="text" inputmode="decimal" placeholder="0" aria-label="calculator display" readonly />
+      <div class="row" style="margin-bottom: 0.5rem;">
+        <button class="btn clear" data-action="clear">C</button>
+        <button class="btn" data-action="back">⌫</button>
+        <button class="btn" data-value="%">%</button>
+        <button class="btn op" data-value="/">÷</button>
+      </div>
+  
+      <div class="row">
+        <button class="btn" data-value="7">7</button>
+        <button class="btn" data-value="8">8</button>
+        <button class="btn" data-value="9">9</button>
+        <button class="btn op" data-value="*">×</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="4">4</button>
+        <button class="btn" data-value="5">5</button>
+        <button class="btn" data-value="6">6</button>
+        <button class="btn op" data-value="-">−</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="1">1</button>
+        <button class="btn" data-value="2">2</button>
+        <button class="btn" data-value="3">3</button>
+        <button class="btn op" data-value="+">+</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="0">0</button>
+        <button class="btn" data-value=".">.</button>
+        <button class="btn equal" data-action="eval">=</button>
+      </div>
+      <div class="footer">Supports keyboard: digits, + − × ÷ % .  Enter (=), Backspace (⌫), Esc (C)</div>
+      <div class="history" aria-label="Calculation History">
+        <div class="actions"><h3>History</h3><button class="clear-hist" type="button">Clear</button></div>
+        <div id="hist"></div>
+      </div>
+    </div>
+    </div>
+
+  <script>
+    (function() {
+      const disp = document.getElementById('disp');
+      let expr = '';
+      const history = [];
+      const HMAX = 5;
+      const histEl = document.getElementById('hist');
+      const clearBtn = document.querySelector('.clear-hist');
+      const set = v => { expr = v; disp.value = v || '0'; };
+      const renderHist = () => {
+        if (!histEl) return;
+        if (!history.length) {
+          histEl.innerHTML = `<div class="hist-empty">No history yet</div>`;
+          return;
+        }
+        histEl.innerHTML = history.map(([e, r], i) => `<div class="hist-item" data-idx="${i}" title="Click to reuse"><span>${e}</span><strong>= ${r}</strong></div>`).join('');
+      };
+      set('');
+      renderHist();
+
+      function safeAppend(val) {
+        // prevent multiple operators in a row
+        if ('+-*/%'.includes(val)) {
+          if (!expr || '+-*/%.'.includes(expr.slice(-1))) return;
+        }
+        if (val === '.' && (expr.slice(-1) === '.' || /\.\d*$/.test(expr))) {
+          // basic dot guard per number segment
+        }
+        set(expr + val);
+      }
+
+      function evaluate() {
+        if (!expr) return;
+        try {
+          // eslint-disable-next-line no-new-func
+          const result = Function(`return (${expr})`)();
+          const out = String(result);
+          // push to history
+          history.unshift([expr, out]);
+          if (history.length > HMAX) history.pop();
+          renderHist();
+          set(out);
+        } catch(e) {
+          set('');
+          alert('Invalid expression');
+        }
+      }
+
+      document.addEventListener('click', e => {
+        const b = e.target.closest('button.btn');
+        if (!b) return;
+        const action = b.getAttribute('data-action');
+        const val = b.getAttribute('data-value');
+        if (action === 'clear') return set('');
+        if (action === 'back') return set(expr.slice(0, -1));
+        if (action === 'eval') return evaluate();
+        if (val) return safeAppend(val);
+      });
+
+      // Clear history
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          history.length = 0;
+          renderHist();
+        });
+      }
+
+      // Click history to reuse result
+      histEl.addEventListener('click', e => {
+        const item = e.target.closest('.hist-item');
+        if (!item) return;
+        const idx = +item.getAttribute('data-idx');
+        const pair = history[idx];
+        if (!pair) return;
+        set(pair[1]);
+      });
+
+      // Keyboard support
+      document.addEventListener('keydown', e => {
+        const k = e.key;
+        if ((k >= '0' && k <= '9') || k === '.') return safeAppend(k);
+        if (['+', '-', '*', '/','%'].includes(k)) return safeAppend(k);
+        if (k === 'Enter' || k === '=') { e.preventDefault(); return evaluate(); }
+        if (k === 'Backspace') { e.preventDefault(); return set(expr.slice(0, -1)); }
+        if (k === 'Escape') { e.preventDefault(); return set(''); }
+      });
+    })();
+  </script>
+</body>
+</html>

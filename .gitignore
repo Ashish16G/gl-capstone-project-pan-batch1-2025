@@ -1,0 +1,47 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+
+# Do commit this file (dependency locks)
+# .terraform.lock.hcl
+
+# Local files and plans
+*.tfplan
+*.out
+
+# Editor/OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+.githooks/
+
+# Archives and binaries
+*.zip
+*.tar
+*.gz
+*.tgz
+*.bz2
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Logs
+*.log
+logs/
+
+# Node/Python (if any tooling gets added later)
+node_modules/
+venv/
+.env
+.env.*
