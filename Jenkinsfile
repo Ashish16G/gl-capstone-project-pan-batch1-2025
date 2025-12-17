@@ -239,15 +239,20 @@ pipeline {
               exit 0
             }
 
+            # Prepare writable artifacts directory and mount it for report output
+            $artDir = Join-Path $env:WORKSPACE "zap-artifacts"
+            if (-not (Test-Path $artDir)) { New-Item -ItemType Directory -Path $artDir | Out-Null }
+            $artMount = ("$artDir").Replace('\\','/')
+
             Write-Host "Running ZAP Baseline scan against $url using $zapImage"
-            docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t $zapImage zap-baseline.py -t $url -r zap.html
+            docker run --rm -u 0:0 -v "$($artMount):/zap/wrk" -t $zapImage zap-baseline.py -t $url -r zap.html
             if ($LASTEXITCODE -ne 0) { Write-Host "ZAP baseline returned non-zero ($LASTEXITCODE). Proceeding (non-blocking)."; $global:LASTEXITCODE = 0 }
           '''
         }
       }
       post {
         always {
-          archiveArtifacts artifacts: 'zap.html', allowEmptyArchive: true
+          archiveArtifacts artifacts: 'zap-artifacts/zap.html', allowEmptyArchive: true
         }
       }
     }
