@@ -179,7 +179,31 @@ pipeline {
             $ErrorActionPreference = "Stop"
             $ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
             $ECR_REG = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com"
-            $REPO_URL = "$ECR_REG/$env:ECR_REPO"
+            # Try to auto-detect repo URL from Terraform outputs; fallback to parameter if not found
+            $repoParam = $env:ECR_REPO
+            $repoOut = $null
+            if (Test-Path 'infra') {
+              Push-Location infra
+              try {
+                $json = terraform output -json ecr_repo_urls 2>$null
+                if ($LASTEXITCODE -eq 0 -and $json) {
+                  $obj = $json | ConvertFrom-Json
+                  if ($obj.PSObject.Properties.Name.Count -gt 0) {
+                    if ($obj.PSObject.Properties.Name -contains $repoParam) {
+                      $repoOut = $obj.$repoParam
+                    } else {
+                      # take the first output entry
+                      $firstKey = $obj.PSObject.Properties.Name | Select-Object -First 1
+                      $repoOut = $obj.$firstKey
+                      $repoParam = $firstKey
+                    }
+                  }
+                }
+              } catch {}
+              Pop-Location
+            }
+            if (-not $repoOut) { $repoOut = "$ECR_REG/$repoParam" }
+            $REPO_URL = $repoOut
 
             Write-Host "ECR Registry: $ECR_REG"
             Write-Host "Repo URL:     $REPO_URL"
@@ -207,7 +231,7 @@ pipeline {
 
             # Compute image tag consistently (7-char commit or build number)
             if ($env:GIT_COMMIT -and $env:GIT_COMMIT.Length -ge 7) { $TAG = $env:GIT_COMMIT.Substring(0,7) } else { $TAG = $env:BUILD_NUMBER }
-            $localTag = "$($env:ECR_REPO):$TAG"
+            $localTag = "$repoParam:$TAG"
             $remoteTag = "$($REPO_URL):$TAG"
 
             docker build -t "$localTag" .
@@ -260,8 +284,8 @@ pipeline {
               $deadline = (Get-Date).AddMinutes(6)
               do {
                 Start-Sleep -Seconds 15
-                $host = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
-                if ($host) { $created = $true; Write-Host "Service ELB hostname: $host" }
+                $svcHost = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                if ($svcHost) { $created = $true; Write-Host "Service ELB hostname: $svcHost" }
               } while (-not $created -and (Get-Date) -lt $deadline)
             }
 
@@ -271,8 +295,8 @@ pipeline {
               $deadline = (Get-Date).AddMinutes(6)
               do {
                 Start-Sleep -Seconds 15
-                $host = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
-                if ($host) { Write-Host "Service NLB hostname: $host"; break }
+                $svcHost = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                if ($svcHost) { Write-Host "Service NLB hostname: $svcHost"; break }
               } while ((Get-Date) -lt $deadline)
             }
           '''
