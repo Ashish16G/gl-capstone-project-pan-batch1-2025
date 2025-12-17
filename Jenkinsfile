@@ -128,17 +128,15 @@ pipeline {
             docker build -t "$localTag" .
             docker tag "$localTag" "$remoteTag"
 
-            # Trivy image scan (fail on HIGH/CRITICAL) using image tar to avoid docker.sock mount on Windows
-            Write-Host "Saving image to TAR for Trivy scan..."
-            $tarPath = Join-Path $env:WORKSPACE 'image.tar'
-            docker save "$localTag" -o "$tarPath"
-            if (-not (Test-Path "$tarPath")) { throw "Image TAR not found at $tarPath" }
-            Write-Host "Scanning built image with Trivy (HIGH,CRITICAL)..."
-            docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --input /repo/image.tar
-            if ($LASTEXITCODE -ne 0) { throw "Trivy image scan failed with exit code $LASTEXITCODE" }
-
-            Write-Host "Image vulnerability scan passed. Pushing to ECR..."
+            # Push image first, then scan the remote tag in ECR with Trivy (auth via ECR password)
+            Write-Host "Pushing image to ECR..."
             docker push "$remoteTag"
+
+            Write-Host "Scanning pushed image in ECR with Trivy (HIGH,CRITICAL)..."
+            $ecrPwd = $(aws ecr get-login-password --region $env:AWS_REGION)
+            if (-not $ecrPwd) { throw "Failed to obtain ECR password for Trivy auth" }
+            docker run --rm aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --username AWS --password "$ecrPwd" "$remoteTag"
+            if ($LASTEXITCODE -ne 0) { throw "Trivy remote image scan failed with exit code $LASTEXITCODE" }
           '''
         }
       }
