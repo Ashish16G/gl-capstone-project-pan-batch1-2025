@@ -5,27 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Capstone App</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: linear-gradient(135deg, #0b1220 0%, #111936 50%, #1a1030 100%); color: #e2e8f0; }
-    .card { text-align: center; padding: 2rem 3rem; border-radius: 12px; background: #0e1424; box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
-    h1 { margin: 0 0 0.25rem; font-size: 2rem; }
+    body { font-family: Arial, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: linear-gradient(135deg, #ff8c00 0%, #0f1113 50%, #138808 100%); color: #e2e8f0; }
+    .card { text-align: center; padding: 2rem 3rem; border-radius: 12px; background: #111516; box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
+    h1 { margin: 0 0 0.5rem; font-size: 2rem; padding-bottom: 0.4rem; border-bottom: 2px solid rgba(255,255,255,0.6); }
     p { margin: 0.25rem 0 0; color: #94a3b8; }
-    .badge { display: inline-block; margin-top: 1rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #24304a; color: #a5b4fc; font-size: 0.8rem; }
-    .calc { margin-top: 1.5rem; background: #0a1020; padding: 1rem; border-radius: 14px; display: inline-block; text-align: left; box-shadow: 0 10px 28px rgba(0,0,0,0.45); width: 100%; max-width: 420px; }
-    .display { width: 100%; box-sizing: border-box; padding: 1rem 1.2rem; margin-bottom: 0.9rem; border-radius: 10px; background: #0a0f1f; color: #e2e8f0; border: 1px solid #23304d; font-size: 1.4rem; outline: none; }
+    .badge { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 1rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #1b221b; color: #ffcc80; font-size: 0.8rem; }
+    .chip { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 999px; background: #ffffff; color: #0e2b18; font-weight: 700; font-size: 0.7rem; }
+    .calc { margin-top: 1.5rem; background: #0f1414; padding: 1rem; border-radius: 14px; display: inline-block; text-align: left; box-shadow: 0 10px 28px rgba(0,0,0,0.45); width: 100%; max-width: 420px; }
+    .display { width: 100%; box-sizing: border-box; padding: 1rem 1.2rem; margin-bottom: 0.9rem; border-radius: 10px; background: #0f1414; color: #e2e8f0; border: 1px solid #233b2a; font-size: 1.4rem; outline: none; }
     .row { display: grid; grid-template-columns: repeat(4, 3.6rem); gap: 0.7rem; }
-    .btn { background: #273046; color: #e5e7eb; border: none; padding: 0.9rem; border-radius: 12px; cursor: pointer; font-weight: 600; transition: transform .06s ease, filter .15s ease; font-size: 1rem; }
+    .btn { background: #262a28; color: #e5e7eb; border: none; padding: 0.9rem; border-radius: 12px; cursor: pointer; font-weight: 600; transition: transform .06s ease, filter .15s ease; font-size: 1rem; }
     .btn:active { transform: translateY(1px); filter: brightness(1.1); }
-    .btn:hover { box-shadow: 0 0 0 2px rgba(139,92,246,0.25), 0 0 18px rgba(139,92,246,0.25); }
-    .btn:active { box-shadow: 0 0 0 2px rgba(34,197,94,0.3), 0 0 14px rgba(34,197,94,0.25); }
-    .btn.op { background: #8b5cf6; color: #1e1b4b; }
-    .btn.equal { background: #22c55e; color: #052e16; grid-column: span 2; }
-    .btn.clear { background: #f43f5e; color: #fff; }
+    .btn:hover { box-shadow: 0 0 0 2px rgba(255,140,0,0.25), 0 0 18px rgba(255,140,0,0.2); }
+    .btn:active { box-shadow: 0 0 0 2px rgba(19,136,8,0.35), 0 0 14px rgba(19,136,8,0.25); }
+    .btn.op { background: #ff8c00; color: #2b1a06; }
+    .btn.equal { background: #138808; color: #031b0a; grid-column: 1 / -1; }
+    .btn.clear { background: #d84343; color: #fff; }
     .footer { margin-top: 0.75rem; font-size: 0.8rem; color: #93a3b8; text-align: center; }
     .about { margin-top: 1.5rem; text-align: left; max-width: 720px; margin-inline: auto; }
     
     .wrap { display: grid; grid-template-columns: auto; gap: 1rem; align-items: start; }
-    .history { background: #0b1226; border: 1px solid #23304d; border-radius: 12px; padding: 0.75rem; min-height: 8rem; max-height: 14rem; overflow: auto; }
-    .history h3 { margin: 0 0 .5rem; font-size: .9rem; color: #7dd3fc; }
+    .history { background: #0f1414; border: 1px solid #233b2a; border-radius: 12px; padding: 0.75rem; min-height: 8rem; max-height: 14rem; overflow: auto; }
+    .history h3 { margin: 0 0 .5rem; font-size: .9rem; color: #ffb74d; }
     .hist-item { font-size: .9rem; color: #cbd5e1; padding: .3rem .4rem; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; gap: .5rem; }
     .hist-item:hover { background: #0a162a; }
     .diagram { margin-top: 1rem; background: #0a1020; border: 1px solid #23304d; border-radius: 12px; padding: 1rem; }
@@ -40,9 +41,8 @@
 </head>
 <body>
   <div class="card">
-    <h1>Capstone Nginx</h1>
-    <p>Deployed via Jenkins → Terraform → EKS</p>
-    <div class="badge">v2 - Calculator</div>
+    <h1>GL-Capstone-Project-PAN-2025</h1>
+    <div class="badge"><span class="chip"></span>GL</span><span>GlobalLogic Calculator</span></div>
 
     <div class="wrap">
     <div class="calc" aria-label="Simple Calculator">
