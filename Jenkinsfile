@@ -3,7 +3,7 @@ pipeline {
 
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
-    string(name: 'ECR_REPO', defaultValue: 'gl-capactone-project-pan-repo', description: 'ECR repository name')
+    string(name: 'ECR_REPO', defaultValue: 'gl-capstone-project-pan-repo', description: 'ECR repository name')
     string(name: 'CLUSTER_NAME', defaultValue: 'capstone-project-eks-cluster', description: 'EKS cluster name')
   }
 
@@ -260,7 +260,7 @@ pipeline {
               $deadline = (Get-Date).AddMinutes(6)
               do {
                 Start-Sleep -Seconds 15
-                $host = kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                $host = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
                 if ($host) { $created = $true; Write-Host "Service ELB hostname: $host" }
               } while (-not $created -and (Get-Date) -lt $deadline)
             }
@@ -271,7 +271,7 @@ pipeline {
               $deadline = (Get-Date).AddMinutes(6)
               do {
                 Start-Sleep -Seconds 15
-                $host = kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                $host = kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
                 if ($host) { Write-Host "Service NLB hostname: $host"; break }
               } while ((Get-Date) -lt $deadline)
             }
@@ -298,15 +298,15 @@ pipeline {
             $REPO_URL = "$ACCOUNT_ID.dkr.ecr.$env:AWS_REGION.amazonaws.com/$env:ECR_REPO"
             if ($env:GIT_COMMIT -and $env:GIT_COMMIT.Length -ge 7) { $TAG = $env:GIT_COMMIT.Substring(0,7) } else { $TAG = $env:BUILD_NUMBER }
             $remoteTag = "$($REPO_URL):$TAG"
-            kubectl set image deployment/nginx-deployment nginx=$remoteTag
+            kubectl set image -n app deployment/nginx-deployment nginx=$remoteTag
             # Wait up to 5 minutes for rollout
-            if (-not (kubectl rollout status deployment/nginx-deployment --timeout=5m)) {
+            if (-not (kubectl rollout status -n app deployment/nginx-deployment --timeout=5m)) {
               Write-Host "Rollout status timed out - collecting diagnostics"
-              kubectl get deployment nginx-deployment -o wide
-              kubectl describe deployment nginx-deployment
-              kubectl get rs -o wide
-              kubectl get pods -o wide
-              kubectl describe pods
+              kubectl get deployment -n app nginx-deployment -o wide
+              kubectl describe deployment -n app nginx-deployment
+              kubectl get rs -n app -o wide
+              kubectl get pods -n app -o wide
+              kubectl describe pods -n app
               kubectl get events --sort-by=.lastTimestamp | Select-Object -Last 100
               throw "Deployment rollout timed out"
             }
@@ -324,7 +324,7 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Continue"
             aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
-            $svcHost = (kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            $svcHost = (kubectl get svc -n app nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
             if (-not $svcHost) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
             $url = "http://$svcHost"
 
