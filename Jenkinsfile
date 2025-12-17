@@ -199,16 +199,21 @@ pipeline {
 
     stage('DAST - ZAP Baseline') {
       steps {
-        powershell '''
-          $ErrorActionPreference = "Continue"
-          aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
-          $host = (kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          if (-not $host) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
-          $url = "http://$host"
-          Write-Host "Running ZAP Baseline scan against $url"
-          docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html
-          if ($LASTEXITCODE -ne 0) { Write-Host "ZAP baseline returned non-zero ($LASTEXITCODE). Proceeding (non-blocking)."; $global:LASTEXITCODE = 0 }
-        '''
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Continue"
+            aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
+            $svcHost = (kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+            if (-not $svcHost) { Write-Host "Service hostname not ready, skipping ZAP"; exit 0 }
+            $url = "http://$svcHost"
+            Write-Host "Running ZAP Baseline scan against $url"
+            docker run --rm -v "$env:WORKSPACE:/zap/wrk" -t owasp/zap2docker-stable zap-baseline.py -t $url -r zap.html
+            if ($LASTEXITCODE -ne 0) { Write-Host "ZAP baseline returned non-zero ($LASTEXITCODE). Proceeding (non-blocking)."; $global:LASTEXITCODE = 0 }
+          '''
+        }
       }
       post {
         always {
