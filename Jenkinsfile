@@ -130,7 +130,9 @@ pipeline {
 
             # Trivy image scan (fail on HIGH/CRITICAL) using image tar to avoid docker.sock mount on Windows
             Write-Host "Saving image to TAR for Trivy scan..."
-            docker save "$localTag" -o image.tar
+            $tarPath = Join-Path $env:WORKSPACE 'image.tar'
+            docker save "$localTag" -o "$tarPath"
+            if (-not (Test-Path "$tarPath")) { throw "Image TAR not found at $tarPath" }
             Write-Host "Scanning built image with Trivy (HIGH,CRITICAL)..."
             docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --input /repo/image.tar
 

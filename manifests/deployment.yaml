@@ -26,6 +26,11 @@ spec:
                   matchLabels:
                     app: nginx
                 topologyKey: kubernetes.io/hostname
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
       containers:
         - name: nginx
           image: nginx:stable
@@ -43,6 +48,27 @@ spec:
             limits:
               cpu: "300m"
               memory: "128Mi"
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
           env:
             - name: APP_BANNER
               valueFrom:
