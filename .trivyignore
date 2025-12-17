@@ -1,0 +1,20 @@
+# Trivy ignore file
+# Add one identifier per line to suppress findings you have reviewed and accepted.
+# Supported identifiers:
+# - CVE IDs (e.g., CVE-2024-12345)
+# - GHSA IDs (e.g., GHSA-xxxx-xxxx-xxxx)
+# - File or directory patterns when using filesystem scan (fs)
+#   Use glob patterns relative to repo root, e.g.
+#   node_modules/**
+#   tests/**
+#
+# IMPORTANT: Only ignore issues you have justified as acceptable (e.g.,
+# unavailable upstream fix, non-exploitable in your context, or dev-only paths).
+# Revisit ignores regularly.
+#
+# Example (uncomment and replace with your accepted IDs):
+# CVE-2023-12345
+# GHSA-aaaa-bbbb-cccc
+#
+# Example to ignore a directory for fs scans:
+# node_modules/**

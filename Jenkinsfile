@@ -16,22 +16,24 @@ pipeline {
       steps {
         checkout scm
       }
+    }
 
     stage('SAST & Manifest Lint') {
       steps {
         powershell '''
           $ErrorActionPreference = "Continue"
           Write-Host "Running Trivy filesystem scan (HIGH,CRITICAL) on repo..."
-          docker run --rm -v "$env:WORKSPACE:/repo" aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 0 /repo
-          if ($LASTEXITCODE -ne 0) { Write-Host "Trivy encountered issues (non-blocking)" }
+          docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 1 .
+          if ($LASTEXITCODE -ne 0) { Write-Error "Trivy filesystem scan found HIGH/CRITICAL issues"; exit 1 }
 
           if (Test-Path "manifests") {
             Write-Host "Linting Kubernetes manifests with kubeval..."
             docker run --rm -v "$env:WORKSPACE/manifests:/manifests" ghcr.io/instrumenta/kubeval:latest /manifests
+            Write-Host "Running kube-linter for richer checks..."
+            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" stackrox/kube-linter:v0.6.8 lint /manifests
           }
         '''
       }
-    }
     }
 
     stage('Tools Versions') {
@@ -125,6 +127,14 @@ pipeline {
 
             docker build -t "$localTag" .
             docker tag "$localTag" "$remoteTag"
+
+            # Trivy image scan (fail on HIGH/CRITICAL) using image tar to avoid docker.sock mount on Windows
+            Write-Host "Saving image to TAR for Trivy scan..."
+            docker save "$localTag" -o image.tar
+            Write-Host "Scanning built image with Trivy (HIGH,CRITICAL)..."
+            docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --input /repo/image.tar
+
+            Write-Host "Image vulnerability scan passed. Pushing to ECR..."
             docker push "$remoteTag"
           '''
         }
