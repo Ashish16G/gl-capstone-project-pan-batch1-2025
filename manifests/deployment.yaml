@@ -14,11 +14,35 @@ spec:
       labels:
         app: nginx
     spec:
+      securityContext:
+        runAsUser: 101
+        runAsNonRoot: true
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: nginx
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: nginx
           image: nginx:stable
           ports:
             - containerPort: 80
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "300m"
+              memory: "128Mi"
           env:
             - name: APP_BANNER
               valueFrom:

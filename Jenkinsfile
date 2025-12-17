@@ -27,8 +27,8 @@ pipeline {
           if ($LASTEXITCODE -ne 0) { Write-Error "Trivy filesystem scan found HIGH/CRITICAL issues"; exit 1 }
 
           if (Test-Path "manifests") {
-            Write-Host "Linting Kubernetes manifests with kubeval..."
-            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" ghcr.io/instrumenta/kubeval:latest /manifests
+            Write-Host "Linting Kubernetes manifests with kubeval (Docker Hub mirror)..."
+            docker run --rm -v "$env:WORKSPACE/manifests:/manifests" cytopia/kubeval:latest /manifests
             Write-Host "Running kube-linter for richer checks..."
             docker run --rm -v "$env:WORKSPACE/manifests:/manifests" stackrox/kube-linter:v0.6.8 lint /manifests
           }
