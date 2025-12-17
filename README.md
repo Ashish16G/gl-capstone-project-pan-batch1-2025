@@ -21,32 +21,36 @@ This repository delivers a simple web app (Nginx + static UI) through a CI/CD pi
    - ID: `AWS_SECRET_ACCESS_KEY` → value: your AWS secret access key
 2. Create a Pipeline job pointing to this repo (Pipeline script from SCM)
 3. Ensure the job uses `Jenkinsfile` (default path)
+4. Agent requires: awscli, terraform, kubectl, docker in PATH
 
 ## Pipeline parameters
 - `AWS_REGION` (default: `ap-south-1`)
-- `ECR_REPO` (default: `gl-capactone-project-pan-repo`)
-- `CLUSTER_NAME` (default: `capstone-eks`)
+- `ECR_REPO` (default: `gl-capstone-project-pan-repo`)
+- `CLUSTER_NAME` (default: `capstone-project-eks-cluster`)
 
 ## How to run
 1. Run the Jenkins job with defaults
 2. Stages executed:
    - Checkout
+   - Ensure Terraform Backend (create S3 bucket + DynamoDB table if missing)
+   - SAST & Manifest Lint (Trivy fs + kubeval + kube-linter)
    - Tools Versions
    - AWS Identity Check (sanity check)
-   - Terraform Init/Plan/Apply (creates/updates VPC, EKS, etc.)
-   - Docker Build and Push (builds and pushes image to ECR)
-   - Deploy to EKS (applies manifests)
-   - Rollout ECR Image (updates deployment to the new tag and waits for rollout)
+   - Terraform Init/Plan/Apply (VPC, EKS, ECR; uses S3 backend with lock)
+   - Docker Build and Push (builds and pushes image to ECR; auto-detects repo from TF outputs)
+   - Deploy to EKS (applies manifests; attempts Classic ELB, falls back to NLB if needed)
+   - Rollout ECR Image (updates deployment image and waits for rollout)
+   - DAST - ZAP Baseline (non-blocking; archives HTML report)
 3. After success, get Service External IP:
    ```
-   kubectl get svc nginx-service -o wide
+   kubectl -n app get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
    ```
-   Open `http://<EXTERNAL-IP>` in the browser
+   Open `http://<ELB-HOSTNAME>` in the browser
 
 ## Local kubectl context
 Set kubeconfig to your cluster (if testing locally):
 ```
-aws eks update-kubeconfig --name capstone-eks --region ap-south-1
+aws eks update-kubeconfig --name capstone-project-eks-cluster --region ap-south-1
 ```
 
 ## App UI
@@ -67,7 +71,7 @@ aws eks update-kubeconfig --name capstone-eks --region ap-south-1
   - Scale node group to 0 instances (managed node group):
     ```
     aws eks update-nodegroup-config \
-      --cluster-name capstone-eks \
+      --cluster-name capstone-project-eks-cluster \
       --nodegroup-name capstone-nodes \
       --scaling-config minSize=0,desiredSize=0,maxSize=1 \
       --region ap-south-1
@@ -82,6 +86,19 @@ aws eks update-kubeconfig --name capstone-eks --region ap-south-1
 - ECR login 400/“no basic auth credentials” → verify credentials, region, time sync, and proxy rules
 - OIDC thumbprint errors → ensure full issuer URL is used by Terraform (handled in this repo)
 - Rollout timeouts → check `kubectl describe` for ImagePullBackOff, readiness, or capacity issues
+- Service not found in wait loop → ensure namespace `app` is used: `kubectl -n app get svc nginx-service`
+- Classic ELB unsupported in your account/region → pipeline falls back to NLB automatically
+
+## What this repo creates
+- VPC with 2 public + 2 private subnets across 2 AZs, IGW, 1 NAT, route tables
+- Security Groups for HTTP(80) and SSH(22-from-CIDR)
+- EKS cluster (`capstone-project-eks-cluster`) + managed node group
+- ECR repo (`gl-capstone-project-pan-repo`) with scan-on-push
+- Kubernetes manifests (namespace `app`, deployment, services) and Classic ELB exposure
+- Jenkins pipeline with:
+  - S3+DynamoDB Terraform backend ensure
+  - SAST (Trivy fs/image) and DAST (ZAP baseline, non-blocking)
+  - End-to-end build → infra → deploy → test flow
 
 ## Maintainers
 Piyush, Ashish, and Neha
