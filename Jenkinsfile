@@ -32,24 +32,35 @@ pipeline {
 
             Write-Host "Ensuring S3 bucket $bucket exists in $region..."
             $exists = $false
-            try { aws s3api head-bucket --bucket $bucket | Out-Null; $exists = $true } catch { $exists = $false }
+            # Use exit codes rather than PowerShell error stream to avoid failing the stage
+            & aws s3api head-bucket --bucket $bucket 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $exists = $true }
             if (-not $exists) {
               if ($region -eq 'us-east-1') {
-                aws s3api create-bucket --bucket $bucket | Out-Null
+                & aws s3api create-bucket --bucket $bucket 2>$null | Out-Null
               } else {
-                aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region | Out-Null
+                & aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region 2>$null | Out-Null
               }
-              aws s3api put-bucket-versioning --bucket $bucket --versioning-configuration Status=Enabled | Out-Null
-              aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "Failed to create S3 bucket $bucket" }
+              & aws s3api put-bucket-versioning --bucket $bucket --versioning-configuration Status=Enabled 2>$null | Out-Null
+              & aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true 2>$null | Out-Null
+              # Wait until bucket is reachable
+              $max=10; $ok=$false
+              for ($i=0; $i -lt $max -and -not $ok; $i++) {
+                Start-Sleep -Seconds 3
+                & aws s3api head-bucket --bucket $bucket 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) { $ok=$true }
+              }
+              if (-not $ok) { throw "S3 bucket $bucket not reachable after creation" }
             }
 
             Write-Host "Ensuring DynamoDB table $table exists..."
-            $tableExists = $false
-            try { aws dynamodb describe-table --table-name $table | Out-Null; $tableExists = $true } catch { $tableExists = $false }
-            if (-not $tableExists) {
-              aws dynamodb create-table --table-name $table --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST | Out-Null
+            & aws dynamodb describe-table --table-name $table 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              & aws dynamodb create-table --table-name $table --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST 2>$null | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "Failed to create DynamoDB table $table" }
               Write-Host "Waiting for DynamoDB table to be ACTIVE..."
-              aws dynamodb wait table-exists --table-name $table
+              & aws dynamodb wait table-exists --table-name $table 2>$null | Out-Null
             }
           '''
         }
