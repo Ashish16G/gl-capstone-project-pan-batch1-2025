@@ -50,10 +50,14 @@ aws eks update-kubeconfig --name capstone-eks --region ap-south-1
 ```
 
 ## App UI
-- Home: “Capstone Nginx”
-- Calculator widget: supports +, −, ×, ÷, %, decimals, C, backspace, keyboard input
-- History panel: last 5 calculations, click to reuse
-- About section: badges for Jenkins, Terraform, Amazon EKS, Docker, Amazon ECR and a small architecture diagram
+- Page title: “GL-Capstone-Project-PAN-2025” with a subtle white underline
+- Theme: Indian flag-inspired gradient (saffron → dark → green) with cohesive component colors
+- Calculator: display + keypad in one block, with the history panel on the right (stacks below on small screens)
+- Operators and behavior: +, −, ×, ÷, %, decimals, C, backspace, Enter (=), and keyboard input
+- Equals button: spans the full row on all screen sizes
+- Touch-friendly: larger buttons and spacing; responsive adjustments for coarse pointers
+- History: shows the last few results, clickable to reuse; includes a “Clear” button; shows “No history yet” placeholder when empty
+- Badge: reads “GlobalLogic Calculator” (removed previous badges/diagram section for a cleaner look)
 
 ## Cost notes
 - ELB and NAT Gateway incur charges while running
