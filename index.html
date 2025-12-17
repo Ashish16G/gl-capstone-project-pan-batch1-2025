@@ -10,13 +10,98 @@
     h1 { margin: 0 0 0.25rem; font-size: 2rem; }
     p { margin: 0.25rem 0 0; color: #94a3b8; }
     .badge { display: inline-block; margin-top: 1rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #1f2937; color: #93c5fd; font-size: 0.8rem; }
+    .calc { margin-top: 1.5rem; background: #0b1220; padding: 1rem; border-radius: 10px; display: inline-block; text-align: left; }
+    .display { width: 100%; box-sizing: border-box; padding: 0.6rem 0.8rem; margin-bottom: 0.75rem; border-radius: 8px; background: #0a0f1a; color: #e2e8f0; border: 1px solid #1f2a44; font-size: 1.1rem; }
+    .row { display: grid; grid-template-columns: repeat(4, 3rem); gap: 0.5rem; }
+    .btn { background: #1f2937; color: #e5e7eb; border: none; padding: 0.7rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn.op { background: #0ea5e9; color: #082f49; }
+    .btn.equal { background: #22c55e; color: #052e16; grid-column: span 2; }
+    .btn.clear { background: #ef4444; color: #fff; }
+    .footer { margin-top: 0.75rem; font-size: 0.8rem; color: #93a3b8; text-align: center; }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Capstone Nginx</h1>
     <p>Deployed via Jenkins → Terraform → EKS</p>
-    <div class="badge">v1</div>
+    <div class="badge">v2 - Calculator</div>
+
+    <div class="calc" aria-label="Simple Calculator">
+      <input id="disp" class="display" type="text" inputmode="decimal" placeholder="0" aria-label="calculator display" readonly />
+      <div class="row" style="margin-bottom: 0.5rem;">
+        <button class="btn clear" data-action="clear">C</button>
+        <button class="btn" data-action="back">⌫</button>
+        <button class="btn" data-value="%">%</button>
+        <button class="btn op" data-value="/">÷</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="7">7</button>
+        <button class="btn" data-value="8">8</button>
+        <button class="btn" data-value="9">9</button>
+        <button class="btn op" data-value="*">×</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="4">4</button>
+        <button class="btn" data-value="5">5</button>
+        <button class="btn" data-value="6">6</button>
+        <button class="btn op" data-value="-">−</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="1">1</button>
+        <button class="btn" data-value="2">2</button>
+        <button class="btn" data-value="3">3</button>
+        <button class="btn op" data-value="+">+</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-value="0">0</button>
+        <button class="btn" data-value=".">.</button>
+        <button class="btn equal" data-action="eval">=</button>
+      </div>
+      <div class="footer">Supports + − × ÷ % and decimals</div>
+    </div>
   </div>
+
+  <script>
+    (function() {
+      const disp = document.getElementById('disp');
+      let expr = '';
+      const set = v => { expr = v; disp.value = v || '0'; };
+      set('');
+
+      function safeAppend(val) {
+        // prevent multiple operators in a row
+        if ('+-*/%'.includes(val)) {
+          if (!expr || '+-*/%.'.includes(expr.slice(-1))) return;
+        }
+        if (val === '.' && (expr.slice(-1) === '.' || /\.\d*$/.test(expr))) {
+          // basic dot guard per number segment
+        }
+        set(expr + val);
+      }
+
+      function evaluate() {
+        if (!expr) return;
+        try {
+          // eslint-disable-next-line no-new-func
+          const result = Function(`return (${expr})`)();
+          set(String(result));
+        } catch(e) {
+          set('');
+          alert('Invalid expression');
+        }
+      }
+
+      document.addEventListener('click', e => {
+        const b = e.target.closest('button.btn');
+        if (!b) return;
+        const action = b.getAttribute('data-action');
+        const val = b.getAttribute('data-value');
+        if (action === 'clear') return set('');
+        if (action === 'back') return set(expr.slice(0, -1));
+        if (action === 'eval') return evaluate();
+        if (val) return safeAppend(val);
+      });
+    })();
+  </script>
 </body>
 </html>
