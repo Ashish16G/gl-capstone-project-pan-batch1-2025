@@ -231,7 +231,7 @@ pipeline {
 
             # Compute image tag consistently (7-char commit or build number)
             if ($env:GIT_COMMIT -and $env:GIT_COMMIT.Length -ge 7) { $TAG = $env:GIT_COMMIT.Substring(0,7) } else { $TAG = $env:BUILD_NUMBER }
-            $localTag = "$repoParam:$TAG"
+            $localTag = "$($repoParam):$TAG"
             $remoteTag = "$($REPO_URL):$TAG"
 
             docker build -t "$localTag" .
