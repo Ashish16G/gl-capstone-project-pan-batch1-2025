@@ -5,32 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Capstone App</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: #0f172a; color: #e2e8f0; }
-    .card { text-align: center; padding: 2rem 3rem; border-radius: 12px; background: #111827; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+    body { font-family: Arial, sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: linear-gradient(135deg, #0b1220 0%, #111936 50%, #1a1030 100%); color: #e2e8f0; }
+    .card { text-align: center; padding: 2rem 3rem; border-radius: 12px; background: #0e1424; box-shadow: 0 18px 40px rgba(0,0,0,0.45); }
     h1 { margin: 0 0 0.25rem; font-size: 2rem; }
     p { margin: 0.25rem 0 0; color: #94a3b8; }
-    .badge { display: inline-block; margin-top: 1rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #1f2937; color: #93c5fd; font-size: 0.8rem; }
-    .calc { margin-top: 1.5rem; background: #0b1220; padding: 1rem; border-radius: 14px; display: inline-block; text-align: left; box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
-    .display { width: 100%; box-sizing: border-box; padding: 0.8rem 1rem; margin-bottom: 0.75rem; border-radius: 10px; background: #0a0f1a; color: #e2e8f0; border: 1px solid #1f2a44; font-size: 1.2rem; outline: none; }
-    .row { display: grid; grid-template-columns: repeat(4, 3.2rem); gap: 0.55rem; }
-    .btn { background: #1f2937; color: #e5e7eb; border: none; padding: 0.75rem; border-radius: 10px; cursor: pointer; font-weight: 600; transition: transform .06s ease, filter .15s ease; }
+    .badge { display: inline-block; margin-top: 1rem; padding: 0.35rem 0.6rem; border-radius: 999px; background: #24304a; color: #a5b4fc; font-size: 0.8rem; }
+    .calc { margin-top: 1.5rem; background: #0a1020; padding: 1rem; border-radius: 14px; display: inline-block; text-align: left; box-shadow: 0 10px 28px rgba(0,0,0,0.45); width: 100%; max-width: 420px; }
+    .display { width: 100%; box-sizing: border-box; padding: 1rem 1.2rem; margin-bottom: 0.9rem; border-radius: 10px; background: #0a0f1f; color: #e2e8f0; border: 1px solid #23304d; font-size: 1.4rem; outline: none; }
+    .row { display: grid; grid-template-columns: repeat(4, 3.6rem); gap: 0.7rem; }
+    .btn { background: #273046; color: #e5e7eb; border: none; padding: 0.9rem; border-radius: 12px; cursor: pointer; font-weight: 600; transition: transform .06s ease, filter .15s ease; font-size: 1rem; }
     .btn:active { transform: translateY(1px); filter: brightness(1.1); }
-    .btn.op { background: #0ea5e9; color: #082f49; }
+    .btn:hover { box-shadow: 0 0 0 2px rgba(139,92,246,0.25), 0 0 18px rgba(139,92,246,0.25); }
+    .btn:active { box-shadow: 0 0 0 2px rgba(34,197,94,0.3), 0 0 14px rgba(34,197,94,0.25); }
+    .btn.op { background: #8b5cf6; color: #1e1b4b; }
     .btn.equal { background: #22c55e; color: #052e16; grid-column: span 2; }
-    .btn.clear { background: #ef4444; color: #fff; }
+    .btn.clear { background: #f43f5e; color: #fff; }
     .footer { margin-top: 0.75rem; font-size: 0.8rem; color: #93a3b8; text-align: center; }
     .about { margin-top: 1.5rem; text-align: left; max-width: 720px; margin-inline: auto; }
-    .about h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
-    .about p { margin: .25rem 0 .75rem; color: #a8b3c6; }
-    .badges { display: flex; flex-wrap: wrap; gap: .5rem; }
-    .badge-chip { background: #0b1220; color: #cbd5e1; border: 1px solid #1f2a44; padding: .35rem .6rem; border-radius: 999px; font-size: .85rem; }
-    .wrap { display: grid; grid-template-columns: auto 12rem; gap: 1rem; align-items: start; }
-    .history { background: #0b1220; border: 1px solid #1f2a44; border-radius: 12px; padding: 0.75rem; min-height: 12rem; max-height: 16rem; overflow: auto; }
+    
+    .wrap { display: grid; grid-template-columns: auto; gap: 1rem; align-items: start; }
+    .history { background: #0b1226; border: 1px solid #23304d; border-radius: 12px; padding: 0.75rem; min-height: 8rem; max-height: 14rem; overflow: auto; }
     .history h3 { margin: 0 0 .5rem; font-size: .9rem; color: #7dd3fc; }
     .hist-item { font-size: .9rem; color: #cbd5e1; padding: .3rem .4rem; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; gap: .5rem; }
     .hist-item:hover { background: #0a162a; }
-    .diagram { margin-top: 1rem; background: #0b1220; border: 1px solid #1f2a44; border-radius: 12px; padding: 1rem; }
+    .diagram { margin-top: 1rem; background: #0a1020; border: 1px solid #23304d; border-radius: 12px; padding: 1rem; }
     .diagram svg { width: 100%; height: auto; max-width: 720px; display: block; margin: 0 auto; }
+    @media (pointer: coarse) {
+      .row { grid-template-columns: repeat(4, 4rem); gap: 0.8rem; }
+      .btn { padding: 1.1rem; font-size: 1.1rem; }
+      .display { font-size: 1.6rem; padding: 1.2rem 1.3rem; }
+      .btn.equal { grid-column: 1 / -1; }
+    }
   </style>
 </head>
 <body>
@@ -48,61 +53,7 @@
         <button class="btn" data-value="%">%</button>
         <button class="btn op" data-value="/">÷</button>
       </div>
-
-  <section class="about" aria-label="About this project">
-    <h2>About this Project</h2>
-    <p>This capstone demonstrates a CI/CD pipeline that builds a Docker image, pushes to ECR, and deploys to an Amazon EKS cluster with Terraform-provisioned infrastructure. The calculator is a simple UI to verify end-to-end delivery.</p>
-    <div class="badges">
-      <span class="badge-chip">Jenkins</span>
-      <span class="badge-chip">Terraform</span>
-      <span class="badge-chip">Amazon EKS</span>
-      <span class="badge-chip">Docker</span>
-      <span class="badge-chip">Amazon ECR</span>
-    </div>
-    <div class="diagram" aria-label="Architecture Diagram">
-      <svg viewBox="0 0 820 200" xmlns="http://www.w3.org/2000/svg" role="img">
-        <defs>
-          <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
-            <stop stop-color="#1f2937" offset="0"/>
-            <stop stop-color="#0b1220" offset="1"/>
-          </linearGradient>
-          <style>
-            .bx{fill:url(#g1);stroke:#1f2a44;stroke-width:1.2;rx:10;ry:10}
-            .tx{fill:#cbd5e1;font:600 13px Arial,sans-serif}
-            .sub{fill:#93a3b8;font:400 11px Arial,sans-serif}
-            .arr{stroke:#38bdf8;stroke-width:2.2;marker-end:url(#arrow)}
-          </style>
-          <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#38bdf8"/>
-          </marker>
-        </defs>
-        <!-- Boxes -->
-        <rect class="bx" x="20" y="30" width="160" height="70"/>
-        <text class="tx" x="100" y="58" text-anchor="middle">Jenkins</text>
-        <text class="sub" x="100" y="78" text-anchor="middle">Build & Push</text>
-
-        <rect class="bx" x="220" y="30" width="180" height="70"/>
-        <text class="tx" x="310" y="58" text-anchor="middle">Amazon ECR</text>
-        <text class="sub" x="310" y="78" text-anchor="middle">Image Registry</text>
-
-        <rect class="bx" x="440" y="30" width="180" height="70"/>
-        <text class="tx" x="530" y="58" text-anchor="middle">Terraform</text>
-        <text class="sub" x="530" y="78" text-anchor="middle">Provision EKS & VPC</text>
-
-        <rect class="bx" x="640" y="30" width="160" height="70"/>
-        <text class="tx" x="720" y="58" text-anchor="middle">Amazon EKS</text>
-        <text class="sub" x="720" y="78" text-anchor="middle">Deploy & Service</text>
-
-        <!-- Arrows -->
-        <line class="arr" x1="180" y1="65" x2="220" y2="65"/>
-        <line class="arr" x1="400" y1="65" x2="440" y2="65"/>
-        <line class="arr" x1="620" y1="65" x2="640" y2="65"/>
-
-        <!-- Bottom note -->
-        <text class="sub" x="410" y="150" text-anchor="middle">Flow: Jenkins builds → Push to ECR → Terraform manages infra → App deploys to EKS (exposed via LoadBalancer)</text>
-      </svg>
-    </div>
-  </section>
+  
       <div class="row">
         <button class="btn" data-value="7">7</button>
         <button class="btn" data-value="8">8</button>
@@ -127,13 +78,12 @@
         <button class="btn equal" data-action="eval">=</button>
       </div>
       <div class="footer">Supports keyboard: digits, + − × ÷ % .  Enter (=), Backspace (⌫), Esc (C)</div>
+      <div class="history" aria-label="Calculation History">
+        <h3>History</h3>
+        <div id="hist"></div>
+      </div>
     </div>
-    <div class="history" aria-label="Calculation History">
-      <h3>History</h3>
-      <div id="hist"></div>
     </div>
-    </div>
-  </div>
 
   <script>
     (function() {
@@ -142,11 +92,15 @@
       const history = [];
       const HMAX = 5;
       const histEl = document.getElementById('hist');
+      const histBox = histEl ? histEl.parentElement : null;
       const set = v => { expr = v; disp.value = v || '0'; };
       const renderHist = () => {
+        if (!histEl) return;
         histEl.innerHTML = history.map(([e, r], i) => `<div class="hist-item" data-idx="${i}" title="Click to reuse"><span>${e}</span><strong>= ${r}</strong></div>`).join('');
+        if (histBox) histBox.style.display = history.length ? 'block' : 'none';
       };
       set('');
+      renderHist();
 
       function safeAppend(val) {
         // prevent multiple operators in a row
