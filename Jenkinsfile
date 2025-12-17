@@ -77,11 +77,11 @@ pipeline {
           ]) {
             powershell '''
               $ErrorActionPreference = "Stop"
-              terraform init -input=false
-              Write-Host "Running refresh-only plan to sync state without making changes..."
-              terraform plan -refresh-only -input=false -out=tfplan
-              Write-Host "Applying refresh-only plan (no creates/destroys)..."
-              terraform apply -refresh-only -input=false -auto-approve tfplan
+              terraform init -reconfigure -upgrade -input=false
+              # Ensure workspace 'dev'
+              try { terraform workspace select dev } catch { terraform workspace new dev }
+              terraform plan -input=false -out=tfplan
+              terraform apply -input=false -auto-approve tfplan
             '''
           }
         }
@@ -163,9 +163,40 @@ pipeline {
           powershell '''
             $ErrorActionPreference = "Stop"
             aws eks update-kubeconfig --name $env:CLUSTER_NAME --region $env:AWS_REGION
-            # Create/update a simple application secret (placeholder for Vault/ASM)
-            kubectl create secret generic app-secrets --from-literal=APP_BANNER="GlobalLogic" --dry-run=client -o yaml | kubectl apply -f -
-            kubectl apply -f manifests/
+            aws eks wait cluster-active --name $env:CLUSTER_NAME --region $env:AWS_REGION
+
+            # Namespace, config, deployment
+            if (Test-Path 'manifests/namespace.yaml') { kubectl apply -f manifests/namespace.yaml }
+            if (Test-Path 'manifests/configmap.yaml') { kubectl apply -f manifests/configmap.yaml }
+            if (Test-Path 'manifests/secret.yaml') { kubectl apply -f manifests/secret.yaml }
+            kubectl apply -f manifests/deployment.yaml
+
+            # Attempt Classic ELB first
+            $svcClassic = 'manifests/service-classic.yaml'
+            $svcNlb = 'manifests/service-nlb.yaml'
+            $created = $false
+            if (Test-Path $svcClassic) {
+              Write-Host 'Applying Service (Classic ELB attempt)...'
+              kubectl apply -f $svcClassic
+              # Wait up to ~6 minutes for ELB hostname
+              $deadline = (Get-Date).AddMinutes(6)
+              do {
+                Start-Sleep -Seconds 15
+                $host = kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                if ($host) { $created = $true; Write-Host "Service ELB hostname: $host" }
+              } while (-not $created -and (Get-Date) -lt $deadline)
+            }
+
+            if (-not $created -and (Test-Path $svcNlb)) {
+              Write-Host 'Classic ELB not ready/unsupported. Falling back to NLB...'
+              kubectl apply -f $svcNlb
+              $deadline = (Get-Date).AddMinutes(6)
+              do {
+                Start-Sleep -Seconds 15
+                $host = kubectl get svc nginx-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>$null
+                if ($host) { Write-Host "Service NLB hostname: $host"; break }
+              } while ((Get-Date) -lt $deadline)
+            }
           '''
         }
       }

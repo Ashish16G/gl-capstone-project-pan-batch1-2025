@@ -11,7 +11,13 @@ terraform {
     }
   }
   # Simple local backend; you can switch to S3 later
-  backend "local" {}
+  backend "s3" {
+    bucket         = "gl-capstone-project-pan-2025"
+    key            = "envs/dev/terraform.tfstate"
+    region         = "ap-south-1"
+    dynamodb_table = "gl-capstone-project-pan-2025"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
