@@ -73,8 +73,10 @@ pipeline {
             powershell '''
               $ErrorActionPreference = "Stop"
               terraform init -input=false
-              terraform plan -input=false -out=tfplan
-              terraform apply -input=false -auto-approve tfplan
+              Write-Host "Running refresh-only plan to sync state without making changes..."
+              terraform plan -refresh-only -input=false -out=tfplan
+              Write-Host "Applying refresh-only plan (no creates/destroys)..."
+              terraform apply -refresh-only -input=false -auto-approve tfplan
             '''
           }
         }
