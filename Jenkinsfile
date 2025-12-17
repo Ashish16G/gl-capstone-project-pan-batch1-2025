@@ -18,6 +18,44 @@ pipeline {
       }
     }
 
+    stage('Ensure Terraform Backend') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'AWS_ACCESS_KEY_ID', variable: 'AWS_ACCESS_KEY_ID'),
+          string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
+          powershell '''
+            $ErrorActionPreference = "Stop"
+            $bucket = 'gl-capstone-project-pan-2025'
+            $table  = 'gl-capstone-project-pan-2025'
+            $region = $env:AWS_REGION
+
+            Write-Host "Ensuring S3 bucket $bucket exists in $region..."
+            $exists = $false
+            try { aws s3api head-bucket --bucket $bucket | Out-Null; $exists = $true } catch { $exists = $false }
+            if (-not $exists) {
+              if ($region -eq 'us-east-1') {
+                aws s3api create-bucket --bucket $bucket | Out-Null
+              } else {
+                aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region | Out-Null
+              }
+              aws s3api put-bucket-versioning --bucket $bucket --versioning-configuration Status=Enabled | Out-Null
+              aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true | Out-Null
+            }
+
+            Write-Host "Ensuring DynamoDB table $table exists..."
+            $tableExists = $false
+            try { aws dynamodb describe-table --table-name $table | Out-Null; $tableExists = $true } catch { $tableExists = $false }
+            if (-not $tableExists) {
+              aws dynamodb create-table --table-name $table --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST | Out-Null
+              Write-Host "Waiting for DynamoDB table to be ACTIVE..."
+              aws dynamodb wait table-exists --table-name $table
+            }
+          '''
+        }
+      }
+    }
+
     stage('SAST & Manifest Lint') {
       steps {
         powershell '''
