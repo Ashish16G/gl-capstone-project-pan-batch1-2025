@@ -25,42 +25,57 @@ pipeline {
           string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
         ]) {
           powershell '''
-            $ErrorActionPreference = "Stop"
-            $bucket = 'gl-capstone-project-pan-2025'
+            # Do not fail the stage on non-terminating errors from native commands
+            $ErrorActionPreference = "Continue"
+            $bucketBase = 'gl-capstone-project-pan-2025'
             $table  = 'gl-capstone-project-pan-2025'
             $region = $env:AWS_REGION
+            $account = $(aws sts get-caller-identity --query Account --output text 2>$null)
+            if (-not $account) { throw "Unable to resolve AWS account id" }
+
+            # Try base bucket; if globally taken by someone else, fallback to account-suffixed bucket
+            $bucket = $bucketBase
 
             Write-Host "Ensuring S3 bucket $bucket exists in $region..."
             $exists = $false
-            # Use exit codes rather than PowerShell error stream to avoid failing the stage
-            & aws s3api head-bucket --bucket $bucket 2>$null | Out-Null
+            # Suppress all output; rely on exit code only
+            & aws s3api head-bucket --bucket $bucket 1>$null 2>$null
             if ($LASTEXITCODE -eq 0) { $exists = $true }
             if (-not $exists) {
               if ($region -eq 'us-east-1') {
-                & aws s3api create-bucket --bucket $bucket 2>$null | Out-Null
+                & aws s3api create-bucket --bucket $bucket 1>$null 2>$null
               } else {
-                & aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region 2>$null | Out-Null
+                & aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region 1>$null 2>$null
               }
-              if ($LASTEXITCODE -ne 0) { throw "Failed to create S3 bucket $bucket" }
-              & aws s3api put-bucket-versioning --bucket $bucket --versioning-configuration Status=Enabled 2>$null | Out-Null
-              & aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true 2>$null | Out-Null
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "Base bucket creation failed; trying account-suffixed bucket..."
+                $bucket = "$bucketBase-$account"
+                if ($region -eq 'us-east-1') {
+                  & aws s3api create-bucket --bucket $bucket 1>$null 2>$null
+                } else {
+                  & aws s3api create-bucket --bucket $bucket --create-bucket-configuration LocationConstraint=$region 1>$null 2>$null
+                }
+                if ($LASTEXITCODE -ne 0) { throw "Failed to create S3 bucket $bucket" }
+              }
+              & aws s3api put-bucket-versioning --bucket $bucket --versioning-configuration Status=Enabled 1>$null 2>$null
+              & aws s3api put-public-access-block --bucket $bucket --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true 1>$null 2>$null
               # Wait until bucket is reachable
               $max=10; $ok=$false
               for ($i=0; $i -lt $max -and -not $ok; $i++) {
                 Start-Sleep -Seconds 3
-                & aws s3api head-bucket --bucket $bucket 2>$null | Out-Null
+                & aws s3api head-bucket --bucket $bucket 1>$null 2>$null
                 if ($LASTEXITCODE -eq 0) { $ok=$true }
               }
               if (-not $ok) { throw "S3 bucket $bucket not reachable after creation" }
             }
 
             Write-Host "Ensuring DynamoDB table $table exists..."
-            & aws dynamodb describe-table --table-name $table 2>$null | Out-Null
+            & aws dynamodb describe-table --table-name $table 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) {
-              & aws dynamodb create-table --table-name $table --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST 2>$null | Out-Null
+              & aws dynamodb create-table --table-name $table --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --billing-mode PAY_PER_REQUEST 1>$null 2>$null
               if ($LASTEXITCODE -ne 0) { throw "Failed to create DynamoDB table $table" }
               Write-Host "Waiting for DynamoDB table to be ACTIVE..."
-              & aws dynamodb wait table-exists --table-name $table 2>$null | Out-Null
+              & aws dynamodb wait table-exists --table-name $table 1>$null 2>$null
             }
           '''
         }
@@ -126,7 +141,21 @@ pipeline {
           ]) {
             powershell '''
               $ErrorActionPreference = "Stop"
-              terraform init -reconfigure -upgrade -input=false
+              # Compute backend bucket/table same as ensure stage
+              $bucketBase = 'gl-capstone-project-pan-2025'
+              $table  = 'gl-capstone-project-pan-2025'
+              $account = $(aws sts get-caller-identity --query Account --output text)
+              if (-not $account) { throw "Unable to resolve AWS account id" }
+              $bucket = $bucketBase
+              & aws s3api head-bucket --bucket $bucket 1>$null 2>$null
+              if ($LASTEXITCODE -ne 0) { $bucket = "$bucketBase-$account" }
+
+              terraform init -reconfigure -upgrade -input=false `
+                -backend-config="bucket=$bucket" `
+                -backend-config="key=envs/dev/terraform.tfstate" `
+                -backend-config="region=$env:AWS_REGION" `
+                -backend-config="dynamodb_table=$table" `
+                -backend-config="encrypt=true"
               # Ensure workspace 'dev'
               try { terraform workspace select dev } catch { terraform workspace new dev }
               terraform plan -input=false -out=tfplan
