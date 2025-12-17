@@ -4,7 +4,7 @@ pipeline {
   parameters {
     string(name: 'AWS_REGION', defaultValue: 'ap-south-1', description: 'AWS region')
     string(name: 'ECR_REPO', defaultValue: 'gl-capactone-project-pan-repo', description: 'ECR repository name')
-    string(name: 'CLUSTER_NAME', defaultValue: 'capstone-eks', description: 'EKS cluster name')
+    string(name: 'CLUSTER_NAME', defaultValue: 'capstone-project-eks-cluster', description: 'EKS cluster name')
   }
 
   options {
