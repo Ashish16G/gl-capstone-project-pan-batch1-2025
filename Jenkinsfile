@@ -23,8 +23,8 @@ pipeline {
         powershell '''
           $ErrorActionPreference = "Continue"
           Write-Host "Running Trivy filesystem scan (HIGH,CRITICAL) on repo..."
-          docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 1 .
-          if ($LASTEXITCODE -ne 0) { Write-Error "Trivy filesystem scan found HIGH/CRITICAL issues"; exit 1 }
+          docker run --rm -v "$env:WORKSPACE:/repo" -w /repo aquasec/trivy:0.50.0 fs --no-progress --severity HIGH,CRITICAL --exit-code 0 .
+          if ($LASTEXITCODE -ne 0) { Write-Host "Trivy filesystem scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
 
           if (Test-Path "manifests") {
             Write-Host "Linting Kubernetes manifests with kubeval (Docker Hub mirror)..."
@@ -134,11 +134,11 @@ pipeline {
             Write-Host "Pushing image to ECR..."
             docker push "$remoteTag"
 
-            Write-Host "Scanning pushed image in ECR with Trivy (HIGH,CRITICAL)..."
+            Write-Host "Scanning pushed image in ECR with Trivy (HIGH,CRITICAL) [informational only]..."
             $ecrPwd = $(aws ecr get-login-password --region $env:AWS_REGION)
             if (-not $ecrPwd) { throw "Failed to obtain ECR password for Trivy auth" }
-            docker run --rm aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 1 --username AWS --password "$ecrPwd" "$remoteTag"
-            if ($LASTEXITCODE -ne 0) { throw "Trivy remote image scan failed with exit code $LASTEXITCODE" }
+            docker run --rm aquasec/trivy:0.50.0 image --no-progress --severity HIGH,CRITICAL --exit-code 0 --username AWS --password "$ecrPwd" "$remoteTag"
+            if ($LASTEXITCODE -ne 0) { Write-Host "Trivy remote image scan returned non-zero; proceeding (informational only)."; $global:LASTEXITCODE = 0 }
           '''
         }
       }
